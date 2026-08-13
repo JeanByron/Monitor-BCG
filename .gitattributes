@@ -1,0 +1,15 @@
+# OJO al ORDEN: en .gitattributes gana la ÚLTIMA regla que casa, al
+# revés que la intuición. Con "* text=auto" al final, se llevaba por
+# delante la excepción de los .eml.
+
+# Por defecto, finales de línea normalizados en el repositorio.
+* text=auto
+
+# Los .eml son correos de verdad y las pruebas leen sus cabeceras tal
+# cual: si git les cambia los finales de línea al clonar en otro equipo,
+# el parseo deja de coincidir con el .expected.json.
+*.eml -text
+
+*.xlsx binary
+*.ico binary
+*.png binary

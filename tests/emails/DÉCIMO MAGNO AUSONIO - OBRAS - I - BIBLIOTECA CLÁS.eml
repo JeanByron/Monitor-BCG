@@ -1,0 +1,321 @@
+Delivered-To: usuario@ejemplo.com
+Received: by 2002:a05:7208:81ca:b0:106:fe52:2494 with SMTP id l10csp743220rbf;
+        Sun, 12 Jul 2026 00:52:25 -0700 (PDT)
+X-Received: by 2002:a05:620a:2950:b0:92e:6533:26ce with SMTP id af79cd13be357-92ef2cce8efmr512881985a.71.1783842745375;
+        Sun, 12 Jul 2026 00:52:25 -0700 (PDT)
+ARC-Seal: i=1; a=rsa-sha256; t=1783842745; cv=none;
+        d=google.com; s=arc-20260327;
+        b=UOVE0E098912n23lmvaNDC9uBuSpHiyHWdtBTkXefL3a/LtvwO1SVEybdkcE/3ZDfc
+         LtmcnCy01xNO1uLlPL+7JmyC/qG0+HaNcEk60yFbeH+d5Cap8moLUV67YLmo0XFD96eP
+         V2+oH25LzDDS94fsca3ystWv2WYyq2LzgZljQt+9bwyE5uDdwvOcH9j/m43GvClASYVr
+         kzOMYahAZIBNhSlc3FBk/mvFJIq5PjBxHpqzeLwuh5t9TBbf0ZzJGLGHpr0fH4ZV2QAv
+         aNaed168XF+mwsV2JPvW54FhPnIl33yglO81x6/+OJCs/C+Mj9L/zfHJCYRLLCeffsWA
+         M8iQ==
+ARC-Message-Signature: i=1; a=rsa-sha256; c=relaxed/relaxed; d=google.com; s=arc-20260327;
+        h=feedback-id:mime-version:subject:message-id:to:reply-to:from:date
+         :dkim-signature:dkim-signature;
+        bh=jgYpyxo3GFDtP6jFlsGprUdW03UQRuJpQQjDVxJSEOg=;
+        fh=BOHoYH+NYIEkCbTCfT1mDSGSVqiky1bEk12fOdrzGZA=;
+        b=UM4qW62hYPr41oa530QyIyE4zh5hmQ+jrhtKdmeXIhkTFrspz1RN/ry8jhaErXI0u1
+         TKXvG+0Eb3sbMFBWYF02zZRugAyKoRf3zceBXO5Epa6uRj16tJXpGRpBeOl8Vos7eoEV
+         e45HZ2sB385PvToY2TJHY8uYIbVCpfdV4Upap4MTq+VKwmARLJARJSxhJCMvGkDjRdRa
+         illv4XrOYSduDa6oWLPDPj1nIXYdd6rJk3X52dpFyhXd4Q/jEvgxujQnPSHipegeGrbZ
+         DVnk3a8rou66lW0iqoAdvuUM0S58C4kGzQT97TMwMtPvXchFXYX1RCjgf/YMdZOMurHo
+         5bww==;
+        dara=google.com
+ARC-Authentication-Results: i=1; mx.google.com;
+       dkim=pass header.i=@todocoleccion.net header.s=w3sbtcbrpebkdoe5256i6fgzcys4cdfv header.b=LGjPCOL+;
+       dkim=pass header.i=@amazonses.com header.s=224i4yxa5dv7c2xz3womw6peuasteono header.b=sLou2SBs;
+       spf=pass (google.com: domain of 0100019f55502ac4-9272aaa0-f186-4b3c-9fe4-9d7fd6cbfcf1-000000@ses.todocoleccion.net designates 54.240.11.187 as permitted sender) smtp.mailfrom=0100019f55502ac4-9272aaa0-f186-4b3c-9fe4-9d7fd6cbfcf1-000000@ses.todocoleccion.net;
+       dmarc=pass (p=NONE sp=NONE dis=NONE) header.from=todocoleccion.net
+Return-Path: <0100019f55502ac4-9272aaa0-f186-4b3c-9fe4-9d7fd6cbfcf1-000000@ses.todocoleccion.net>
+Received: from a11-187.smtp-out.amazonses.com (a11-187.smtp-out.amazonses.com. [54.240.11.187])
+        by mx.google.com with ESMTPS id af79cd13be357-92ee5dc79b0si658439285a.422.2026.07.12.00.52.25
+        for <usuario@ejemplo.com>
+        (version=TLS1_3 cipher=TLS_AES_128_GCM_SHA256 bits=128/128);
+        Sun, 12 Jul 2026 00:52:25 -0700 (PDT)
+Received-SPF: pass (google.com: domain of 0100019f55502ac4-9272aaa0-f186-4b3c-9fe4-9d7fd6cbfcf1-000000@ses.todocoleccion.net designates 54.240.11.187 as permitted sender) client-ip=54.240.11.187;
+Authentication-Results: mx.google.com;
+       dkim=pass header.i=@todocoleccion.net header.s=w3sbtcbrpebkdoe5256i6fgzcys4cdfv header.b=LGjPCOL+;
+       dkim=pass header.i=@amazonses.com header.s=224i4yxa5dv7c2xz3womw6peuasteono header.b=sLou2SBs;
+       spf=pass (google.com: domain of 0100019f55502ac4-9272aaa0-f186-4b3c-9fe4-9d7fd6cbfcf1-000000@ses.todocoleccion.net designates 54.240.11.187 as permitted sender) smtp.mailfrom=0100019f55502ac4-9272aaa0-f186-4b3c-9fe4-9d7fd6cbfcf1-000000@ses.todocoleccion.net;
+       dmarc=pass (p=NONE sp=NONE dis=NONE) header.from=todocoleccion.net
+DKIM-Signature: v=1; a=rsa-sha256; q=dns/txt; c=relaxed/simple;
+	s=w3sbtcbrpebkdoe5256i6fgzcys4cdfv; d=todocoleccion.net;
+	t=1783842745;
+	h=Date:From:Reply-To:To:Message-ID:Subject:MIME-Version:Content-Type;
+	bh=AGVy9oB7ttjf5IVHaaA2QURIeSOKJWSMQHM8SaOCDkA=;
+	b=LGjPCOL+T5AorXUI8UxuR+uEgQ9q3tkBwhLBfsehoaPp0STIx7E8KsrjxhzaVFs5
+	b6Hfa2Dp7Gyva2KFokVZHhQSQ93v1D/Qv2UACvXDYamlM3+iixKMsnmUR4IHsVUa4Bo
+	KatKJuBA0phBv0mtIQPkbo9D6vFQ5eyi+obhbwro=
+DKIM-Signature: v=1; a=rsa-sha256; q=dns/txt; c=relaxed/simple;
+	s=224i4yxa5dv7c2xz3womw6peuasteono; d=amazonses.com; t=1783842745;
+	h=Date:From:Reply-To:To:Message-ID:Subject:MIME-Version:Content-Type:Feedback-ID;
+	bh=AGVy9oB7ttjf5IVHaaA2QURIeSOKJWSMQHM8SaOCDkA=;
+	b=sLou2SBszM46es3HMSSx1rPw7fwzSux3LjfD4+udTPdcEkzMVKbm50v0wXiyaaNh
+	9mopnDWx0WnX5DbNctJqaT9uXBZnDtfOAaPad+53PLqOL/cxFxzDXEZkhVIvF7Q/lqM
+	qZob+gWacP9pgZRtB+L/wcGvr9Jx7pPL6z8QvDxA=
+Date: Sun, 12 Jul 2026 07:52:25 +0000
+From: todocoleccion <seguimientos@todocoleccion.net>
+Reply-To: soporteusuarios@todocoleccion.net
+To: usuario@ejemplo.com
+Message-ID: <0100019f55502ac4-9272aaa0-f186-4b3c-9fe4-9d7fd6cbfcf1-000000@email.amazonses.com>
+Subject: =?UTF-8?Q?D=C3=89CIMO_MAGNO_AUSONIO_-_OBRAS_-_I_-_BIBLIOTECA_CL=C3=81S...?=
+MIME-Version: 1.0
+Content-Type: multipart/alternative; 
+	boundary="----=_Part_355349_1350022649.1783842743794"
+X-Mailer: Lucee Mail
+Feedback-ID: ::1.us-east-1.Y8Ec1frykItMfX3AaMmuhruCNXC+7Xl4+NvmIYYY8Rs=:AmazonSES
+X-SES-Outgoing: 2026.07.12-54.240.11.187
+
+------=_Part_355349_1350022649.1783842743794
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+
+El vendedor ha hecho un descuento del 90%
+sobre el lote. No durará para siempre, ahora puede ser buen momento para comprarlo.
+
+Décimo magno ausonio - obras - i - biblioteca clásica gredos / 879
+Precio con descuento: 7,00 EUR
+
+Este descuento permanecerá hasta el sábado 18 de julio de 2026
+
+Puedes ver el lote en el siguiente enlace: 
+https://www.todocoleccion.net/libros-clasicos-segunda-mano/decimo-magno-ausonio-obras-i-biblioteca-clasica-gredos-879~x693967480?utm_campaign=mail-seguimientos&utm_source=descuento-precio&utm_medium=email&utm_content=es
+
+------=_Part_355349_1350022649.1783842743794
+Content-Type: text/html; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<title>todocoleccion</title>
+
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  
+</head>
+
+<body style="min-width: 100% !important; font-size: 15px; font-family: Arial; color: #333; background: #e6e6e6; margin: 0; padding: 20px 0 0 0;" bgcolor="#e6e6e6">
+
+
+
+
+  
+
+
+
+  
+
+
+
+
+<table cellpadding="0" cellspacing="0" align="center" style="width: 100%; max-width: 700px; min-width: 350px; border-radius: 5px 5px 0 0; background: #fff; border: thin solid #e6e6e6;" bgcolor="#fff">
+  <tr>
+    <td>
+      <table style="width: 100%; max-width: 700px; min-width: 350px; border-radius: 5px 5px 0 0; background: #fff; padding: 10px;" bgcolor="#fff">
+        <tr>
+          <td>
+            <table cellpadding="0" cellspacing="0" style="width: 100%; border-bottom-style: solid; border-bottom-width: 1px; border-bottom-color: #ddd; margin-top: 10px">
+              <tr>
+                <td style="vertical-align: bottom; min-width: 190px; padding-right: 10px;">
+                    <a href="https://www.todocoleccion.net" style="color: #0f7ea4;">
+                      <img width="171px" src="https://assets2.todocoleccion.online/images_tc/logo_nom_url.png" border="0" style="vertical-align: bottom;"/>
+                    </a>
+                </td>
+
+                
+                  
+                  <td align="right" style="vertical-align: bottom; padding-bottom:4px;">
+                    
+                  </td>
+                
+                
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+
+  <tr>
+    
+      <td style="padding: 10px;">
+    
+
+        
+
+
+  
+
+  
+
+
+
+
+  <table width="100%">
+  	<tr>
+  		<td align="center" style="padding-top:5px;padding-bottom:15px;font-size:24px;">
+        Descuento del 90%
+  		</td>
+  	</tr>
+  </table>
+
+  
+
+  <table width="100%">
+    
+      <tr>
+        <td valign="top" width="100%" style="padding:5px;border-bottom:1px solid gainsboro;">
+          
+
+  
+
+  <div>
+    <div style="float:left;width:35%;">
+      <div style="float:left;">
+        <a href="https://www.todocoleccion.net/libros-clasicos-segunda-mano/decimo-magno-ausonio-obras-i-biblioteca-clasica-gredos-879~x693967480?utm_campaign=mail-seguimientos&utm_source=descuento-precio&utm_medium=email&utm_content=es"><img src="https://cloud10.todocoleccion.online/libros-clasicos-segunda-mano/tc/2026/06/26/18/693967480.jpg?size=230x230&crop=true" border="0" style="width:100%;" /></a>
+      </div>
+    </div>
+    <div style="float:right;margin-right:5px;width:62%;">
+      <div style="float:left;padding:2px;font-size:20px;width:100%;min-width:150px;min-height:100px">
+        Décimo magno ausonio - obras - i - biblioteca clásica gredos / 879
+      </div>
+
+      <div style="float:right;padding:2px;text-align:right;width:100%;min-width:80px;">
+        <strong style="color:#6c1f7d;"><span class="text-nowrap " style="font-size:26px;">7,00 &euro;</span></strong>
+
+        
+          <span style="color:gray;text-decoration:line-through;"><span class="text-nowrap " style="font-size:16px;">70,00 &euro;</span></span>
+          <br/>
+          <strong style="color:green;font-size:14px;">
+            ¡90% de descuento!
+          </strong>
+
+          
+            <br/><span style="color:green;font-size:12px;">Hasta el sábado, 18 de julio</span>
+          
+        
+
+        
+
+        <br/>
+
+        <a href="https://www.todocoleccion.net/libros-clasicos-segunda-mano/decimo-magno-ausonio-obras-i-biblioteca-clasica-gredos-879~x693967480?utm_campaign=mail-seguimientos&utm_source=descuento-precio&utm_medium=email&utm_content=es" style="text-decoration:none;color:white;">
+          <div style="float:right;width:100px;border-radius:5px;padding:10px;margin:3px;border:1px solid;text-align:center;background-color:#0f7ea4;color:white;">
+            <strong>Ver</strong>
+          </div>
+        </a>
+      </div>
+    </div>
+  </div>
+
+
+        </td>
+      </tr>
+    
+  </table>
+
+
+
+  <img src="https://www.todocoleccion.net/notificaciones/markasread?id=3077337545&user=2158646967&randID=8768C327-D7B8-42BD-93B5D1B666BB6113" width="1" height="1" border="0">
+
+
+
+
+
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        <table style="background-color: #081327; width: 100%; max-width: 700px; min-width: 350px;" cellpadding="0" cellspacing="0" align="center">
+          <tr>
+            <td>
+              <table width="100%" cellpadding="0" cellspacing="0" align="center">
+                <tr>
+                  <td style="text-align:center; padding-top:20px;">
+
+                    <a href="https://instagram.com/todocoleccion" target="_blank" rel="noopener noreferrer"><img src="https://assets2.todocoleccion.online/assets/images/emails/footer/icon/icon-tc-instagram.png?202606150941" width="32" height="32" border="0" title="Síguenos en instagram" alt="Síguenos en instagram" style="vertical-align:middle; margin-left:5px;" /></a>
+
+                    <a href="https://www.instagram.com/todocoleccion_libros" target="_blank" rel="noopener noreferrer"><img src="https://assets2.todocoleccion.online/assets/images/emails/footer/icon/icon-tc-libros.png?202606150941" width="32" height="32" border="0" title="Síguenos en instagram libros" alt="Síguenos en instagram libros" style="vertical-align:middle; margin-left:5px;" /></a>
+
+                    <a href="https://www.facebook.com/todocoleccion" target="_blank" rel="noopener noreferrer"><img src="https://assets2.todocoleccion.online/assets/images/emails/footer/icon/icon-tc-facebook.png?202606150941" width="32" height="32" border="0" title="Síguenos en facebook" alt="Síguenos en facebook" style="vertical-align:middle;" /></a>
+
+                    <a href="https://www.twitter.com/todocoleccion" target="_blank" rel="noopener noreferrer"><img src="https://assets2.todocoleccion.online/assets/images/emails/footer/icon/icon-tc-twitter-x.png?202606150941" width="32" height="32" border="0" title="Síguenos en X" alt="Síguenos en X" style="vertical-align:middle; margin-left:5px;" /></a>
+
+                    <a href="https://www.pinterest.com/todocoleccion" target="_blank" rel="noopener noreferrer"><img src="https://assets2.todocoleccion.online/assets/images/emails/footer/icon/icon-tc-pinterest.png?202606150941" width="32" height="32" border="0" title="Síguenos en pinterest" alt="Síguenos en pinterest" style="vertical-align:middle; margin-left:5px;" /></a>
+
+                    <a href="https://www.youtube.com/user/todocoleccion" target="_blank" rel="noopener noreferrer"><img src="https://assets2.todocoleccion.online/assets/images/emails/footer/icon/icon-tc-youtube.png?202606150941" width="32" height="32" border="0" title="Síguenos en youtube" alt="Síguenos en youtube" style="vertical-align:middle; margin-left:5px;" /></a>
+
+                    <a href="https://www.tiktok.com/@todocolecciontc" target="_blank" rel="noopener noreferrer"><img src="https://assets2.todocoleccion.online/assets/images/emails/footer/icon/icon-tc-tiktok.png?202606150941" width="32" height="32" border="0" title="Síguenos en TikTok" alt="Síguenos en TikTok" style="vertical-align:middle; margin-left:5px;" /></a>
+
+                    <a href="https://www.todocoleccionblog.net" target="_blank" rel="noopener noreferrer"><img src="https://assets2.todocoleccion.online/assets/images/emails/footer/icon/icon-tc-rss.png?202606150941" width="32" height="32" border="0" title="Visita nuestro blog" alt="Visita nuestro blog" style="vertical-align:middle; margin-left:5px;" /></a>
+
+                    <a href="https://www.todocoleccion.net/colecciona-recuerdos" target="_blank" rel="noopener noreferrer"><img src="https://assets2.todocoleccion.online/assets/images/emails/footer/icon/icon-tc-colecciona-recuerdos.png?202606150941" width="32" height="32" border="0" title="Blog Colecciona Recuerdos" alt="Blog Colecciona Recuerdos" style="vertical-align:middle; margin-left:5px;" /></a>
+
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align:center;padding-bottom: 12px; padding-top: 19px;">
+                    
+
+                    <a href="https://play.google.com/store/apps/details?id=com.jaraxa.todocoleccion&referrer=utm_source%3Dpiecorreo%26utm_medium%3Dfooter%26utm_campaign%3Dlogo-pie-correo" target="_blank" rel="noopener noreferrer"><img src="https://assets2.todocoleccion.online/assets/images/emails/footer/badge/googleplay_es.png?202606150941" border="0" title="Aplicación para Android disponible en Google Play" alt="Aplicación para Android disponible en Google Play" style="vertical-align:middle;" /></a>
+                    <a href="https://apps.apple.com/es/app/todocoleccion/id892347440?pt=1649480&ct=logo-pie&mt=8" target="_blank" rel="noopener noreferrer"><img src="https://assets2.todocoleccion.online/assets/images/emails/footer/badge/appstore_es.png?202606150941" border="0" title="Aplicación para iOS disponible en el App Store" alt="Aplicación para iOS disponible en el App Store" style="vertical-align:middle;" /></a>
+                  </td>
+                </tr>
+                <tr>
+                  <td align="center">
+                    <div style="max-width: 541px; border-top: 1px solid #687792;"></div>
+                  </td>
+                </tr>
+                <tr>
+                  <td align="center">
+                    
+                  </td>
+                </tr>
+                
+                  
+                    
+                  
+                  <tr>
+                    <td align="center" style="color: #FFFFFF; font-size: 10px; padding-bottom:3px; padding-top:13px;">
+                      Estás registrado en todocoleccion como <a href="mailto:usuario@ejemplo.com" style="color: #FFFFFF;text-decoration:none;">usuario@ejemplo.com</a>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td align="center" style="color: #FFFFFF; font-size: 10px; padding-bottom:17px;">
+                      
+                        Puedes gestionar tus
+                        <a href="https://www.todocoleccion.net/mitc/comunicaciones/edit"
+                           style="color: #0E7EA4;text-decoration:none;">preferencias</a>
+                        o
+                        
+                          <a href="https://www.todocoleccion.net/mitc/comunicaciones/edit"
+                             style="color: #0E7EA4;text-decoration:none;">cancelar tu suscripción</a>
+                        
+                      
+                    </td>
+                  </tr>
+                
+              </table>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+    <tr>
+      <td align="center" style="background:#e6e6e6;">
+        <p style="color: #999; font-size: 12px; ">
+          Zoconet, S.L. Calle Joaquín Turina, 11, Planta 1, Oficina 7, 29010, Málaga | <a href="https://www.todocoleccion.net/politica-de-privacidad" style="color: #40B2D4;">Política de privacidad</a>
+        </p>
+      </td>
+    </tr>
+  </table>
+&nbsp;
+</body>
+</html>
+
+------=_Part_355349_1350022649.1783842743794--

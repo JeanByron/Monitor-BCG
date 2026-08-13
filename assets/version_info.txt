@@ -1,0 +1,46 @@
+# version_info.txt
+# ================
+# Recurso de versión de Windows para el ejecutable (PyInstaller).
+#
+# Es lo que hace que el ADMINISTRADOR DE TAREAS muestre
+# "Monitor BCG" (campo FileDescription) en lugar del nombre
+# del archivo, y lo que rellena la pestaña Detalles → Propiedades.
+#
+# Uso al construir:
+#   pyinstaller --noconfirm --onefile --windowed ^
+#       --name "MonitorBCG" ^
+#       --icon icon.ico ^
+#       --version-file version_info.txt ^
+#       main.py
+
+VSVersionInfo(
+    ffi=FixedFileInfo(
+        filevers=(1, 1, 0, 0),
+        prodvers=(1, 1, 0, 0),
+        mask=0x3F,
+        flags=0x0,
+        OS=0x40004,
+        fileType=0x1,
+        subtype=0x0,
+        date=(0, 0),
+    ),
+    kids=[
+        StringFileInfo(
+            [
+                StringTable(
+                    "0c0a04b0",  # español (Colombia), Unicode
+                    [
+                        StringStruct("CompanyName", "Biblioteca Clásica Gredos — proyecto personal"),
+                        StringStruct("FileDescription", "Monitor BCG"),
+                        StringStruct("FileVersion", "1.1.0.0"),
+                        StringStruct("InternalName", "MonitorBCG"),
+                        StringStruct("OriginalFilename", "MonitorBCG.exe"),
+                        StringStruct("ProductName", "Monitor BCG — Biblioteca Clásica Gredos"),
+                        StringStruct("ProductVersion", "1.1.0.0"),
+                    ],
+                )
+            ]
+        ),
+        VarFileInfo([VarStruct("Translation", [3082, 1200])]),
+    ],
+)

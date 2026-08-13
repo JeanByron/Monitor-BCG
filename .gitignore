@@ -1,0 +1,49 @@
+# OJO: git NO admite comentarios al final de una línea de patrón.
+# "config.json  # credenciales" sería un patrón llamado
+# "config.json  # credenciales" y no casaría con nada. Los comentarios
+# van SIEMPRE en su propia línea.
+
+# ----------------------------------------------------------------------
+# Datos de ejecución: viven en la RAÍZ junto al código (ver CLAUDE.md),
+# pero son de cada usuario y no son parte del programa.
+# config.json lleva el correo y la contraseña cifrada con DPAPI.
+# ----------------------------------------------------------------------
+config.json
+last_email.eml
+log.txt
+log.txt.*
+tc_monitor.db
+tc_monitor.db-shm
+tc_monitor.db-wal
+tc_monitor.db.bak*
+dataset_stats.json
+
+# Lo regenera pytest en cada pasada
+tests/last_report.md
+
+# ----------------------------------------------------------------------
+# Corpus de los tomos (779 MB). `textos.db` solo es el índice del
+# buscador: se reconstruye desde los .jsonl y ADEMÁS pasa del límite de
+# 100 MB por archivo de GitHub. El Excel de la colección SÍ viaja: sin
+# él la aplicación no sabe qué tomos existen.
+# ----------------------------------------------------------------------
+BDtomos/*
+!BDtomos/titulosBCG.xlsx
+
+# PDFs que el usuario analiza (el programa no los guarda, solo su texto)
+Libros/
+
+# ----------------------------------------------------------------------
+# Python y empaquetado
+# ----------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+.pytest_cache/
+build/
+dist/
+
+# ----------------------------------------------------------------------
+# Ajustes locales de Claude Code (rutas de ESTE equipo)
+# ----------------------------------------------------------------------
+.claude/settings.local.json
+.claude/settings.local.json.bak*

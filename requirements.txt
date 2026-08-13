@@ -1,0 +1,39 @@
+# Monitor BCG — dependencias
+#
+#     pip install -r requirements.txt
+#
+# El resto de lo que usa el programa son módulos de la biblioteca
+# estándar de Python: imaplib, email, sqlite3, json, logging, threading,
+# re, html.parser, urllib, winreg, ctypes.
+
+# --- Imprescindibles ---
+
+# Interfaz gráfica. Trae también QtWebEngine, que es el único navegador
+# que pasa la protección de Todocolección y renderiza Wallapop.
+PySide6>=6.6
+
+# Lectura de los PDF de los tomos (se importa como `fitz`).
+PyMuPDF>=1.24
+
+# --- Recomendadas (el programa arranca sin ellas, con menos alcance) ---
+
+# Avisos nativos de Windows 10/11 en el Centro de actividades.
+# Si falta, se usa el respaldo por PowerShell + WinRT.
+winotify>=1.1.0
+
+# Parser HTML especializado (nivel 1 de la cascada de análisis del
+# correo). Sin él, el parser cae a los niveles 2-4.
+beautifulsoup4>=4.12
+
+# Lectura del Excel de la colección (BDtomos/titulosBCG.xlsx).
+# Sin él la app funciona, pero no puede importar los 423 tomos.
+openpyxl>=3.1
+
+# --- Fuera de este archivo ---
+#
+# Tesseract OCR NO se instala con pip: es un programa aparte (~50 MB)
+# que solo hace falta para rescatar las páginas escaneadas. Se busca en
+# el PATH y en las rutas típicas de Windows, o se indica su ruta en
+# Configuración. Hay que marcar el idioma «Spanish» al instalarlo.
+#
+# Para desarrollar:  pip install pytest pyinstaller
