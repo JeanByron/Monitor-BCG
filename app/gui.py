@@ -5253,7 +5253,7 @@ class PasajesDeTomoDialog(FramelessDialog):
     _MAX_PASAJES = 300      # tope de coincidencias que se traen del tomo
 
     def __init__(self, indice, canonico: str, consulta: str,
-                 incluir_notas: bool = True,
+                 incluir_notas: bool = True, clases=None,
                  parent: Optional[QWidget] = None) -> None:
         super().__init__(canonico[:70], parent)
         self._indice = indice
@@ -5326,16 +5326,16 @@ class PasajesDeTomoDialog(FramelessDialog):
         botones.addWidget(btn_close)
         self.body.addLayout(botones)
 
-        self._cargar(incluir_notas)
+        self._cargar(incluir_notas, clases)
 
-    def _cargar(self, incluir_notas: bool) -> None:
+    def _cargar(self, incluir_notas: bool, clases=None) -> None:
         from app import rag
 
         try:
             self._hallazgos = self._indice.buscar(
                 self._consulta, limite=self._MAX_PASAJES,
                 tomo=self._canonico, incluir_notas=incluir_notas,
-                por_tomo=0,
+                clases=clases, por_tomo=0,
             )
         except rag.RagError as exc:
             self.lbl_info.setText(str(exc))
@@ -5660,6 +5660,10 @@ class BuscarTextosDialog(FramelessDialog):
     # a mano, que para saber DÓNDE está mejor tratado un asunto es el
     # que vale.
     _ORDENES = ("Alfabético", "Más coincidencias")
+    # Ámbito de partida: la obra y los índices que llevan a ella (ver
+    # rag.AMBITOS). Deja fuera la introducción del editor y las notas,
+    # que son el 27 % de las palabras del corpus.
+    _AMBITO_POR_DEFECTO = 1
 
     def __init__(self, consulta: str = "",
                  parent: Optional[QWidget] = None) -> None:
@@ -5688,13 +5692,27 @@ class BuscarTextosDialog(FramelessDialog):
         btn = GlowButton("Buscar")
         btn.clicked.connect(self._buscar)
         top.addWidget(btn)
-        self.cb_notas = QCheckBox("Con notas")
-        self.cb_notas.setToolTip(
-            "Busca también en las notas del traductor.\n"
-            "Son dos tercios del corpus: sin marcar, solo el texto del autor."
+        # Un tomo trae tres voces —el autor antiguo, el traductor y el
+        # aparato de consulta—, así que el ámbito no es un sí/no sino una
+        # escala: cada peldaño AÑADE al anterior. El de por defecto es
+        # «Obra e índices»: el texto y las concordancias que llevan a él,
+        # sin el estudio del editor ni las notas (dos tercios del corpus).
+        from app import rag as _rag
+
+        top.addWidget(QLabel("Buscar en:"))
+        self.cmb_ambito = QComboBox()
+        for etiqueta, _clases in _rag.AMBITOS:
+            self.cmb_ambito.addItem(etiqueta)
+        self.cmb_ambito.setCurrentIndex(self._AMBITO_POR_DEFECTO)
+        self.cmb_ambito.setToolTip(
+            "De quién es el texto donde se busca:\n"
+            "· Solo la obra — lo que escribió el autor antiguo.\n"
+            "· Obra e índices — más el índice de nombres del traductor.\n"
+            "· Con la introducción — más su estudio inicial.\n"
+            "· Todo — más las notas al pie y finales."
         )
-        self.cb_notas.stateChanged.connect(lambda _: self._buscar())
-        top.addWidget(self.cb_notas)
+        self.cmb_ambito.currentIndexChanged.connect(lambda _i: self._buscar())
+        top.addWidget(self.cmb_ambito)
         top.addWidget(QLabel("Ordenar:"))
         self.cmb_orden = QComboBox()
         for etiqueta in self._ORDENES:
@@ -5885,8 +5903,7 @@ class BuscarTextosDialog(FramelessDialog):
         estado: dict = {}
         try:
             tomos = self._indice.tomos_con(
-                consulta, incluir_notas=self.cb_notas.isChecked(),
-                estado=estado,
+                consulta, clases=self._clases(), estado=estado,
             )
         except rag.RagError as exc:
             self.lbl_status.setText(str(exc))
@@ -5918,6 +5935,17 @@ class BuscarTextosDialog(FramelessDialog):
                 f" · quedan {datos['pendientes']} tomos por indexar"
                 if datos["pendientes"] else ""
             )
+            # Antes de dar por perdida la búsqueda, mirar si lo que pasa
+            # es que el ÁMBITO lo deja fuera: decir «sin resultados»
+            # cuando la palabra está en la introducción de doce tomos
+            # sería mentir por omisión.
+            fuera = self._donde_queda_fuera()
+            if fuera:
+                self.lbl_status.setText(
+                    f"«{consulta}» no sale en el ámbito elegido, pero sí en "
+                    f"{fuera}: amplía «Buscar en:»."
+                )
+                return
             self.lbl_status.setText(
                 f"Sin resultados para «{consulta}» en los {datos['tomos']} "
                 f"tomos indexados{falta}."
@@ -5986,7 +6014,7 @@ class BuscarTextosDialog(FramelessDialog):
             return None
         dialogo = PasajesDeTomoDialog(
             self._indice, canonico, self._consulta,
-            incluir_notas=self.cb_notas.isChecked(), parent=self,
+            clases=self._clases(), parent=self,
         )
         dialogo.exec()
         return dialogo
@@ -6039,13 +6067,57 @@ class BuscarTextosDialog(FramelessDialog):
         self.lbl_nombres.show()
         self.tbl_nombres.show()
 
+    def _clases(self) -> tuple:
+        """Las clases de pasaje que pide el selector «Buscar en:»."""
+        from app import rag
+
+        indice = max(0, min(self.cmb_ambito.currentIndex(),
+                            len(rag.AMBITOS) - 1))
+        return rag.AMBITOS[indice][1]
+
+    def _donde_queda_fuera(self, canonico: str = "") -> str:
+        """
+        Dónde sale lo buscado que el ámbito de ahora deja fuera.
+
+        Devuelve «sus notas», «su introducción», «su índice» (o la suma)
+        para poder DECIRLO en vez de contestar «sin resultados»: con el
+        ámbito por defecto —la obra y los índices— una palabra que solo
+        esté en el estudio del traductor no saldría, y sin este aviso
+        parecería que no está en ninguna parte.
+        """
+        from app import rag
+
+        if self._indice is None or not self._consulta:
+            return ""
+        faltan = [c for c in rag.CLASES if c not in self._clases()]
+        if not faltan:
+            return ""
+        nombres = {
+            rag.CLASE_NOTAS: "sus notas",
+            rag.CLASE_EDITOR: "su introducción",
+            rag.CLASE_APARATO: "su índice",
+            rag.CLASE_OBRA: "el texto",
+        }
+        salida = []
+        for clase in faltan:
+            try:
+                tomos = self._indice.tomos_con(self._consulta, clases=(clase,))
+            except rag.RagError:
+                continue
+            if canonico:
+                if any(t["canonico"] == canonico for t in tomos):
+                    salida.append(nombres[clase])
+            elif tomos:
+                salida.append(f"{nombres[clase]} ({len(tomos)} tomo(s))")
+        return " y ".join(salida)
+
     def _por_que_no_esta(self, canonico: str, refs: str = "") -> str:
         """
         Por qué un tomo que cita el nombre no está en la lista de abajo.
 
         Son DOS cosas distintas y antes se decían igual («la palabra no
         aparece en el texto indexado del tomo»), que además podía ser
-        falso: la palabra estaba, escondida por el filtro de notas.
+        falso: la palabra estaba, escondida por el ámbito de búsqueda.
 
         Y cuando de verdad no está, lo que hay que decir es lo otro: el
         índice de nombres de la BCG suele ser COMÚN a toda la obra, así
@@ -6056,18 +6128,12 @@ class BuscarTextosDialog(FramelessDialog):
         """
         from app import rag
 
-        if not self.cb_notas.isChecked() and self._indice is not None:
-            try:
-                con_notas = self._indice.tomos_con(
-                    self._consulta, incluir_notas=True
-                )
-            except rag.RagError:
-                con_notas = []
-            if any(t["canonico"] == canonico for t in con_notas):
-                return (
-                    f"En «{canonico}» eso solo sale en sus notas: marca "
-                    f"«Con notas» para verlo."
-                )
+        fuera = self._donde_queda_fuera(canonico)
+        if fuera:
+            return (
+                f"En «{canonico}» eso sale en {fuera}: amplía «Buscar en:» "
+                f"para verlo."
+            )
         cita = f" ({refs.split(';')[0].strip()})" if refs else ""
         return (
             f"«{canonico}» cita ese nombre en su índice{cita}, pero el "

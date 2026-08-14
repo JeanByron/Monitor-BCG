@@ -614,17 +614,45 @@ def test_el_doble_clic_abre_la_ventana_del_tomo(app, indice_falso, monkeypatch):
 
 
 def test_buscar_textos_notas_solo_si_se_piden(app, indice_falso):
-    from app import gui
+    """
+    El ámbito «Buscar en:» es acumulativo y el último peldaño es el que
+    añade las notas del traductor (dos tercios del corpus).
+    """
+    from app import gui, rag
 
     d = _abrir(gui.BuscarTextosDialog("epíteto"))
     QApplication.processEvents()
     assert d.table.rowCount() == 0          # por defecto, sin notas
-    d.cb_notas.setChecked(True)
+    # Y no se calla: dice DÓNDE está lo que el ámbito deja fuera, en vez
+    # de contestar «sin resultados» y dejar al lector pensando que no
+    # existe en ningún tomo.
+    assert "notas" in d.lbl_status.text()
+    d.cmb_ambito.setCurrentIndex(len(rag.AMBITOS) - 1)      # «Todo»
     QApplication.processEvents()
     assert d.table.rowCount() == 1          # el tomo que la lleva
     assert "1 pasaje(s)" in d.table.item(0, 1).text()
     d.close()
     QApplication.processEvents()
+
+
+def test_los_ambitos_del_buscador_son_acumulativos(app, indice_falso):
+    """
+    Cada peldaño AÑADE al anterior: si uno dejara de incluir lo del
+    anterior, subir el selector podría hacer DESAPARECER resultados.
+    """
+    from app import rag
+
+    for menor, mayor in zip(rag.AMBITOS, rag.AMBITOS[1:]):
+        assert set(menor[1]) < set(mayor[1]), (menor[0], mayor[0])
+    assert set(rag.AMBITOS[-1][1]) == set(rag.CLASES)
+    # El de por defecto deja fuera la introducción y las notas, que son
+    # el 27 % de las palabras del corpus.
+    from app import gui
+
+    por_defecto = rag.AMBITOS[gui.BuscarTextosDialog._AMBITO_POR_DEFECTO][1]
+    assert rag.CLASE_OBRA in por_defecto and rag.CLASE_APARATO in por_defecto
+    assert rag.CLASE_NOTAS not in por_defecto
+    assert rag.CLASE_EDITOR not in por_defecto
 
 
 def test_buscar_textos_sin_consulta_no_lista_nada(app, indice_falso):
@@ -1581,9 +1609,8 @@ def test_mensaje_cuando_el_nombre_del_indice_no_lleva_a_ningun_tomo(
     QApplication.processEvents()
 
     d._consulta = "epíteto"                  # solo en las notas del tomo
-    assert not d.cb_notas.isChecked()
     aviso = d._por_que_no_esta("Homero — Ilíada")
-    assert "Con notas" in aviso
+    assert "notas" in aviso and "Buscar en:" in aviso
 
     d._consulta = "mirmidones"               # no está en ninguna parte
     aviso = d._por_que_no_esta("Homero — Ilíada", "VII 654; IX 12")

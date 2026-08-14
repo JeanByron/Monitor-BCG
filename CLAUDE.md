@@ -887,8 +887,37 @@ Windows, `QTextLayout.glyphRuns()` provoca un fallo de acceso y
   misma regla que prohíbe el .txt corrido en `pdftext`. La cita
   prefiere SIEMPRE la página impresa; en las ediciones digitales sin
   folio, el verso/parágrafo; «hoja N del PDF» solo como último recurso.
-  · **Las notas van en pasajes aparte** (`clase='notas'`): son 66.781
-  hojas de 101.402 y taparían el texto del autor. Se pueden excluir.
+  · **CUATRO CLASES, NO DOS (VERSION 4, 2026-08-14)**: un tomo de la
+  BCG no tiene dos voces sino tres —el autor antiguo, el traductor
+  moderno y el aparato de consulta—, y con la clase binaria
+  (`cuerpo`/`notas`) se mezclaban: pedir «solo el texto» devolvía
+  también la introducción del editor, y la única forma de quitársela
+  era quitarse también los índices. Ahora `clase` es `obra` | `editor`
+  | `notas` | `aparato`, asignada por SECCIÓN (`_CLASE_POR_SECCION`) y,
+  ante la duda, `obra` — el error caro no es que se cuele un párrafo
+  del traductor, es esconder una página del autor detrás de un filtro.
+  Reparto MEDIDO del corpus (36,9 M de palabras, 277 tomos): obra
+  70,6 %, notas 19,8 %, editor 7,5 %, aparato 2,1 %.
+  · **Los ámbitos son ACUMULATIVOS** (`rag.AMBITOS`, combo «Buscar en:»
+  de `BuscarTextosDialog`): «Solo la obra» ⊂ «Obra e índices» ⊂ «Con la
+  introducción» ⊂ «Todo, con las notas». Si un peldaño dejara de
+  incluir lo del anterior, subirlo haría DESAPARECER resultados (hay
+  prueba que lo comprueba). Los dos últimos son exactamente lo que
+  hacían «Con notas» desmarcado y marcado, así que quien ya usaba el
+  buscador no nota el cambio. Por defecto va el segundo
+  (`_AMBITO_POR_DEFECTO`): el texto y las concordancias que llevan a
+  él, sin el estudio del editor ni las notas.
+  · **Un ámbito que deja fuera lo buscado se DICE**
+  (`_donde_queda_fuera`): con el ámbito por defecto, una palabra que
+  solo esté en la introducción no sale, y contestar «sin resultados»
+  sería mentir por omisión — la ventana dice «sí en su introducción
+  (12 tomos): amplía Buscar en:».
+  · La búsqueda por clases no cambia cómo se MAQUETA una página:
+  `hoja_completa` sigue devolviendo `cuerpo` y `notas`, porque una
+  página se compone en dos partes. Las cuatro clases son para buscar.
+  · `buscar`/`tomos_con` aceptan `clases=`; el viejo `incluir_notas`
+  sigue valiendo (True = todo, False = todo menos las notas), que es lo
+  que pasan las llamadas antiguas.
   · **UN ÍNDICE NO ES UNA NOTA AL PIE (`SECCIONES_SIN_NOTAS_AL_PIE`,
   VERSION 3, 2026-08-14)**: los índices van en LETRA MENOR que el
   texto, así que el separador de notas al pie de `pdftext` se llevaba

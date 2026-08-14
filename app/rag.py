@@ -19,9 +19,11 @@ Reglas que no se pueden romper
   página impresa, verso/parágrafo). Sin eso no hay CITA, que es el
   objetivo de todo esto — igual que en `pdftext`, jamás un texto
   corrido sin localización.
-- Las NOTAS al pie y las notas finales se indexan en pasajes aparte
-  (`clase = 'notas'`): son 66.781 hojas de las 101.402 del corpus y,
-  mezcladas con el texto del autor, lo taparían en los resultados.
+- Cada pasaje sabe DE QUIÉN es: `clase` distingue la obra del autor
+  antiguo, la introducción del traductor, sus notas y el aparato de
+  consulta (índices, bibliografía). Son cuatro voces distintas en un
+  mismo tomo y, mezcladas, las tres últimas tapan a la primera: las
+  notas solas son 66.781 hojas de las 101.402 del corpus.
 
 Reindexado incremental
 ----------------------
@@ -43,7 +45,7 @@ import threading
 import unicodedata
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Callable, Iterator, Optional
+from typing import Callable, Iterator, Optional, Sequence
 
 from app.config import app_dir
 
@@ -58,7 +60,9 @@ TEXTOS_DIR = app_dir() / "BDtomos" / "TextosTomos"
 #   3 (2026-08-14): las hojas de índice dejan de contarse como notas
 #     (ver SECCIONES_SIN_NOTAS_AL_PIE). Cambia la CLASE de pasajes ya
 #     guardados, así que no vale con reindexar lo nuevo.
-VERSION = 3
+#   4 (2026-08-14): cuatro clases (obra / editor / notas / aparato) en
+#     vez de dos. Misma razón: cambia la clase de lo ya guardado.
+VERSION = 4
 
 # Qué parte del principio de un tomo se salta el pasaje del día:
 # ahí están la introducción y la nota bibliográfica del editor,
@@ -77,6 +81,49 @@ SOLAPE = 40
 # menos en el ranking y se puede excluir con un filtro.
 SECCIONES_TEXTO = ("texto", "introduccion")
 SECCIONES_NOTAS = ("notas_finales",)
+
+# --- Las CUATRO clases de pasaje (VERSION 4, 2026-08-14) -------------
+# Un tomo de la BCG no tiene dos voces, sino tres: el autor antiguo, el
+# traductor moderno y el aparato de consulta. Con la clase BINARIA de
+# antes (`cuerpo`/`notas`) las tres se mezclaban: buscar «solo el texto»
+# devolvía también la introducción del editor y el índice, y la única
+# manera de quitarse la introducción de encima era quitarse también los
+# índices. Medido sobre el corpus (36,9 M de palabras): la obra es el
+# 70,6 %, las notas el 19,1 %, la introducción el 8,1 % y el aparato el
+# 2,2 %.
+CLASE_OBRA = "obra"          # lo que escribió el autor antiguo
+CLASE_EDITOR = "editor"      # introducción y estudio del traductor
+CLASE_NOTAS = "notas"        # notas al pie y notas finales
+CLASE_APARATO = "aparato"    # índices, bibliografía, abreviaturas, créditos
+
+# El CUERPO de cada sección va a esta clase; el campo `notas` de la hoja
+# es siempre CLASE_NOTAS, salvo en SECCIONES_SIN_NOTAS_AL_PIE.
+_CLASE_POR_SECCION = {
+    "texto": CLASE_OBRA,
+    "introduccion": CLASE_EDITOR,
+    "notas_finales": CLASE_NOTAS,
+    "bibliografia": CLASE_APARATO,
+    "indice_nombres": CLASE_APARATO,
+    "indice_general": CLASE_APARATO,
+    "abreviaturas": CLASE_APARATO,
+    "portada": CLASE_APARATO,
+}
+
+# ANTE LA DUDA, OBRA. El error caro no es que se cuele un párrafo del
+# traductor: es esconder una página del autor detrás de un filtro.
+_CLASE_POR_DEFECTO = CLASE_OBRA
+
+CLASES = (CLASE_OBRA, CLASE_EDITOR, CLASE_NOTAS, CLASE_APARATO)
+# Ámbitos del selector, ACUMULATIVOS. El tercero es exactamente lo que
+# hacía «Con notas» desmarcado antes de las clases, y el cuarto lo que
+# hacía marcado: quien ya usaba el buscador no nota el cambio salvo por
+# los dos ámbitos nuevos de arriba.
+AMBITOS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("Solo la obra", (CLASE_OBRA,)),
+    ("Obra e índices", (CLASE_OBRA, CLASE_APARATO)),
+    ("Con la introducción", (CLASE_OBRA, CLASE_APARATO, CLASE_EDITOR)),
+    ("Todo, con las notas", CLASES),
+)
 
 # Secciones que son una LISTA de cabo a rabo: un índice no tiene notas
 # al pie. Si parte de su texto llegó al campo `notas` del .jsonl es solo
@@ -98,7 +145,14 @@ SECCIONES_SIN_NOTAS_AL_PIE = ("indice_nombres", "indice_general")
 
 # Penalización del ranking por clase de pasaje: 1,0 es el texto; las
 # notas y los aparatos valen menos porque casi nunca son la respuesta.
-_PESO_CLASE = {"cuerpo": 1.0, "notas": 0.55}
+# Los extremos son los de siempre (el texto 1,0 y las notas 0,55); las
+# dos clases nuevas se intercalan entre ellos, sin inventar saltos.
+_PESO_CLASE = {
+    CLASE_OBRA: 1.0,
+    CLASE_EDITOR: 0.85,
+    CLASE_APARATO: 0.70,
+    CLASE_NOTAS: 0.55,
+}
 # BM25 divide por la longitud del pasaje, así que una hoja que solo
 # lleva un rótulo ("LVIII\nAQUILES", dos palabras) sale por delante del
 # canto entero donde Aquiles habla. Medido con el corpus real: los
@@ -153,7 +207,7 @@ CREATE TABLE IF NOT EXISTS pasajes (
     seccion     TEXT,
     obra        TEXT,
     titulo      TEXT,
-    clase       TEXT,        -- 'cuerpo' | 'notas'
+    clase       TEXT,        -- obra | editor | notas | aparato
     nota        TEXT,        -- número de nota final, si la hoja es una
     versos      TEXT,        -- referencias del margen, separadas por espacio
     orden       INTEGER,     -- trozo dentro de la hoja (0, 1, 2…)
@@ -303,8 +357,25 @@ def _plegado(texto: str) -> Optional[str]:
 
 
 def _clase_de(seccion: str) -> str:
-    """'notas' para lo que no escribió el autor del tomo."""
-    return "notas" if seccion in SECCIONES_NOTAS else "cuerpo"
+    """De quién es el CUERPO de esa sección: autor, editor o aparato."""
+    return _CLASE_POR_SECCION.get(seccion, _CLASE_POR_DEFECTO)
+
+
+def clases_de_ambito(
+    incluir_notas: bool = True, clases: Optional[Sequence[str]] = None
+) -> tuple[str, ...]:
+    """
+    Qué clases de pasaje entran en la búsqueda.
+
+    `clases` manda si viene; si no, se traduce el `incluir_notas` de
+    siempre (True = todo; False = todo menos las notas), que es lo que
+    siguen pasando las llamadas antiguas.
+    """
+    if clases:
+        return tuple(clases)
+    if incluir_notas:
+        return CLASES
+    return tuple(c for c in CLASES if c != CLASE_NOTAS)
 
 
 def _pasajes_de_hoja(reg: dict) -> Iterator[dict]:
@@ -334,7 +405,7 @@ def _pasajes_de_hoja(reg: dict) -> Iterator[dict]:
         # recomponerla se intercalarían.
         fuentes = ((_clase_de(seccion), "\n".join(t for t in (cuerpo, notas) if t)),)
     else:
-        fuentes = ((_clase_de(seccion), cuerpo), ("notas", notas))
+        fuentes = ((_clase_de(seccion), cuerpo), (CLASE_NOTAS, notas))
     for clase, bruto in fuentes:
         for orden, trozo in enumerate(_trozos(bruto)):
             yield {
@@ -735,6 +806,7 @@ class Indice:
         consulta: str,
         incluir_notas: bool = True,
         estado: Optional[dict] = None,
+        clases: Optional[Sequence[str]] = None,
     ) -> list[dict]:
         """
         TODOS los tomos donde aparece lo buscado, con cuántos pasajes.
@@ -763,12 +835,17 @@ class Indice:
             "  JOIN tomos   t ON t.id = p.tomo_id",
             " WHERE pasajes_fts MATCH ?",
         ]
-        if not incluir_notas:
-            sql.append("   AND p.clase = 'cuerpo'")
+        pedidas = clases_de_ambito(incluir_notas, clases)
+        args: list = [match]
+        if set(pedidas) != set(CLASES):
+            sql.append(
+                "   AND p.clase IN (%s)" % ", ".join("?" * len(pedidas))
+            )
+            args.extend(pedidas)
         sql.append(" GROUP BY t.id ORDER BY pasajes DESC, t.orden")
         with self._lock:
             try:
-                filas = self._con.execute("\n".join(sql), (match,)).fetchall()
+                filas = self._con.execute("\n".join(sql), args).fetchall()
             except sqlite3.OperationalError as exc:
                 raise RagError(f"Consulta no válida: {exc}") from exc
         return [dict(f) for f in filas]
@@ -784,6 +861,7 @@ class Indice:
         candidatos: int = 400,
         por_tomo: int = 3,
         estado: Optional[dict] = None,
+        clases: Optional[Sequence[str]] = None,
     ) -> list["Hallazgo"]:
         """
         Busca una frase o unas palabras y devuelve pasajes con su cita.
@@ -819,8 +897,12 @@ class Indice:
             " WHERE pasajes_fts MATCH ?",
         ]
         args: list = [match]
-        if not incluir_notas:
-            sql.append("   AND p.clase = 'cuerpo'")
+        pedidas = clases_de_ambito(incluir_notas, clases)
+        if set(pedidas) != set(CLASES):
+            sql.append(
+                "   AND p.clase IN (%s)" % ", ".join("?" * len(pedidas))
+            )
+            args.extend(pedidas)
         if tomo:
             sql.append("   AND t.canonico = ?")
             args.append(tomo)
@@ -928,9 +1010,15 @@ class Indice:
             return {}
         # Los pasajes de una hoja se solapan: se recompone quitando la
         # repetición, no concatenando a lo bruto.
+        #
+        # La hoja se devuelve con las DOS partes de siempre —cuerpo y
+        # notas—, que es como se compone una página: las cuatro clases
+        # sirven para BUSCAR, no para maquetar. Todo lo que no es una
+        # nota al pie va al cuerpo, en el orden en que estaba.
         partes: dict = {"cuerpo": [], "notas": []}
         for fila in filas:
-            partes.setdefault(fila["clase"], []).append(fila["texto"])
+            donde = "notas" if fila["clase"] == CLASE_NOTAS else "cuerpo"
+            partes[donde].append(fila["texto"])
         salida = {
             "canonico": filas[0]["canonico"],
             "autor": filas[0]["autor"],
@@ -1051,12 +1139,12 @@ class Indice:
                     "SELECT p.id, p.tomo_id, p.titulo, p.obra, p.texto, "
                     "       p.hoja, t.hojas "
                     "  FROM pasajes p JOIN tomos t ON t.id = p.tomo_id "
-                    " WHERE p.id >= ? AND p.clase='cuerpo' "
+                    " WHERE p.id >= ? AND p.clase=? "
                     "   AND p.seccion='texto' "
                     "   AND p.palabras BETWEEN 110 AND 190 "
                     "   AND t.nombres > 0 "
                     " ORDER BY p.id LIMIT 200",
-                    (desde,),
+                    (desde, CLASE_OBRA),
                 ):
                     hojas = int(f["hojas"] or 0)
                     if hojas and int(f["hoja"] or 0) < hojas * _PRELIMINARES:
@@ -1077,8 +1165,8 @@ class Indice:
                     (int(f["id"]), int(f["tomo_id"]), f["texto"])
                     for f in self._con.execute(
                         "SELECT id, tomo_id, texto FROM pasajes "
-                        " WHERE clase='cuerpo' AND palabras >= 8 "
-                        " ORDER BY id"
+                        " WHERE clase=? AND palabras >= 8 "
+                        " ORDER BY id", (CLASE_OBRA,)
                     )
                 ]
         if not candidatos:
@@ -1323,7 +1411,7 @@ def _hallazgo(fila: sqlite3.Row) -> Hallazgo:
         id=fila["id"], canonico=fila["canonico"], autor=fila["autor"],
         numero=str(fila["numero"] or ""), orden=int(fila["orden"] or 0),
         obra=fila["obra"] or "", titulo=fila["titulo"] or "",
-        seccion=fila["seccion"] or "", clase=fila["clase"] or "cuerpo",
+        seccion=fila["seccion"] or "", clase=fila["clase"] or CLASE_OBRA,
         hoja=fila["hoja"], impresa=fila["impresa"],
         nota=fila["nota"] or "", versos=fila["versos"] or "",
         texto=fila["texto"], bm=bm, peso=peso,

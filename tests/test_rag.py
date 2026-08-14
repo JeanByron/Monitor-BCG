@@ -289,7 +289,7 @@ def test_nota_al_pie_es_pasaje_propio(indice):
 def test_el_texto_gana_a_la_nota_en_el_ranking(indice):
     """A igualdad de coincidencia manda lo que escribió el autor."""
     hits = indice.buscar("Aquiles", incluir_notas=True)
-    assert hits[0].clase == "cuerpo"
+    assert hits[0].clase == rag.CLASE_OBRA
 
 
 def test_un_rotulo_no_gana_al_texto(indice):
@@ -773,7 +773,10 @@ def test_el_indice_de_nombres_se_busca_sin_marcar_notas(indice_de_letra_menor):
     assert [t["canonico"] for t in sin] == [
         "Ovidio — Metamorfosis · Libros XI-XV"
     ]
-    assert idx.buscar("mirmidones", incluir_notas=False)[0].clase == "cuerpo"
+    # Es aparato, no obra: el índice lo escribió el traductor. Pero
+    # aparato entra en la búsqueda mientras no se pidan solo obras.
+    hit = idx.buscar("mirmidones", incluir_notas=False)[0]
+    assert hit.clase == rag.CLASE_APARATO
 
 
 def test_la_nota_al_pie_de_verdad_sigue_siendo_nota(indice_de_letra_menor):
