@@ -718,3 +718,122 @@ def test_la_descripcion_es_una_frase_del_propio_pasaje():
     assert frase in texto
     assert "Licurgo" in frase        # gana la frase con los nombres
     assert rag.descripcion_de_pasaje("", []) == ""
+
+
+# --------------------------------------------------------------------
+# El índice de nombres NO es una nota al pie (2026-08-14)
+# --------------------------------------------------------------------
+# Un índice va en letra menor que el texto, así que el separador de
+# notas al pie se llevaba la hoja entera al campo `notas` del .jsonl y
+# el indexador la marcaba como clase 'notas'. Resultado: con «Con
+# notas» desmarcado el índice desaparecía. Y no en todos los tomos —
+# solo en aquellos cuyo PDF lo compuso más pequeño—, así que el mismo
+# contenido se encontraba o no según el tomo (60 tomos de cuerpo, 22 de
+# notas). Caso real: «mirmidones» no encontraba «Ovidio — Metamorfosis
+# · Libros XI-XV», que lo cita en su índice.
+
+@pytest.fixture()
+def indice_de_letra_menor(tmp_path, monkeypatch):
+    """Tomo cuyo índice de nombres cayó entero en el campo `notas`."""
+    textos = tmp_path / "TextosTomos"
+    textos.mkdir()
+    monkeypatch.setattr(rag, "TEXTOS_DIR", textos)
+    _escribe_tomo(
+        textos, "415 - Ovidio - Metamorfosis.jsonl",
+        {
+            "tipo": "tomo", "orden": 415, "numero": "415.2", "autor": "Ovidio",
+            "obras": "Metamorfosis",
+            "canonico": "Ovidio — Metamorfosis · Libros XI-XV",
+            "formato": "ebook", "hojas_texto": 2, "palabras": 40,
+            "indice_nombres": {"Mirmidones": ["VII 654"]},
+        },
+        [
+            _hoja(8, "Ceix y Alcíone se transformaron en aves marinas.",
+                  impresa=310, obra="LIBRO XI",
+                  notas="Sobre Ceix, véase la introducción de este volumen."),
+            # El índice: NADA en cuerpo, todo en notas (letra menor).
+            _hoja(132, "", seccion="indice_nombres",
+                  notas="Minturno: ciudad de Campania XV 716.\n"
+                        "Mirmidones: hombres surgidos de hormigas VII 654.\n"
+                        "Mirra: hija de Cíniras X 312."),
+            # Y una hoja de índice PARTIDA entre los dos campos.
+            _hoja(133, "Néstor: rey de Pilos XII 169.", seccion="indice_nombres",
+                  notas="Níobe: hija de Tántalo VI 148."),
+        ],
+    )
+    idx = rag.Indice(tmp_path / "textos.db")
+    idx.indexar()
+    yield idx
+    idx.close()
+
+
+def test_el_indice_de_nombres_se_busca_sin_marcar_notas(indice_de_letra_menor):
+    idx = indice_de_letra_menor
+    sin = idx.tomos_con("mirmidones", incluir_notas=False)
+    assert [t["canonico"] for t in sin] == [
+        "Ovidio — Metamorfosis · Libros XI-XV"
+    ]
+    assert idx.buscar("mirmidones", incluir_notas=False)[0].clase == "cuerpo"
+
+
+def test_la_nota_al_pie_de_verdad_sigue_siendo_nota(indice_de_letra_menor):
+    """
+    El arreglo NO puede sacar notas auténticas al texto del autor: la
+    hoja 8 lleva cuerpo y nota al pie, y la nota se queda en su sitio.
+    """
+    idx = indice_de_letra_menor
+    assert not idx.buscar("introducción volumen", incluir_notas=False)
+    nota = idx.buscar("introducción volumen", incluir_notas=True)
+    assert nota and nota[0].clase == "notas"
+    assert "Alcíone" not in nota[0].texto
+
+
+def test_la_hoja_de_indice_partida_se_recompone_entera(indice_de_letra_menor):
+    """
+    Los dos campos son la MISMA lista: se juntan antes de trocear. Si se
+    trocearan por separado habría dos trozos «0» en la hoja y al
+    recomponerla se intercalarían.
+    """
+    hoja = indice_de_letra_menor.hoja_completa(
+        "Ovidio — Metamorfosis · Libros XI-XV", 133
+    )
+    assert "Néstor" in hoja["cuerpo"] and "Níobe" in hoja["cuerpo"]
+    assert not hoja.get("notas")
+    assert hoja["cuerpo"].index("Néstor") < hoja["cuerpo"].index("Níobe")
+
+
+def test_las_secciones_sin_notas_al_pie_son_pocas_a_proposito():
+    """
+    `bibliografia` e `introduccion` SÍ pueden llevar notas al pie de
+    verdad: reclasificarlas sacaría notas auténticas al texto del autor.
+    """
+    assert rag.SECCIONES_SIN_NOTAS_AL_PIE == ("indice_nombres", "indice_general")
+    assert "notas_finales" not in rag.SECCIONES_SIN_NOTAS_AL_PIE
+    assert "bibliografia" not in rag.SECCIONES_SIN_NOTAS_AL_PIE
+
+
+def test_el_pasaje_del_dia_se_resortea_si_el_guardado_ya_no_existe(indice):
+    """
+    Se guarda por IDENTIFICADOR, y reindexar un tomo borra sus pasajes y
+    los reinserta con otros: el del día podía quedar colgando y la
+    ventana salía vacía.
+    """
+    import json as _json
+
+    hoy = "2026-08-14"
+    assert indice.pasaje_del_dia(hoy)
+    indice._escribir_meta(
+        "pasaje_del_dia", _json.dumps({"fecha": hoy, "id": 999_999})
+    )
+    ficha = indice.pasaje_del_dia(hoy)
+    assert ficha and ficha["id"] != 999_999
+    # Y la elección nueva queda guardada, no se re-sortea en cada visita.
+    assert indice.pasaje_del_dia(hoy)["id"] == ficha["id"]
+
+
+def test_rehacer_el_indice_olvida_el_pasaje_del_dia(indice):
+    """Al vaciar, los identificadores se reparten de nuevo desde el 1."""
+    indice.pasaje_del_dia("2026-08-14")
+    assert indice._leer_meta("pasaje_del_dia")
+    indice._vaciar()
+    assert indice._leer_meta("pasaje_del_dia") is None

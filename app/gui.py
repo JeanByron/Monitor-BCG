@@ -6039,6 +6039,42 @@ class BuscarTextosDialog(FramelessDialog):
         self.lbl_nombres.show()
         self.tbl_nombres.show()
 
+    def _por_que_no_esta(self, canonico: str, refs: str = "") -> str:
+        """
+        Por qué un tomo que cita el nombre no está en la lista de abajo.
+
+        Son DOS cosas distintas y antes se decían igual («la palabra no
+        aparece en el texto indexado del tomo»), que además podía ser
+        falso: la palabra estaba, escondida por el filtro de notas.
+
+        Y cuando de verdad no está, lo que hay que decir es lo otro: el
+        índice de nombres de la BCG suele ser COMÚN a toda la obra, así
+        que una cita puede corresponder a un volumen distinto —y quizá
+        sin analizar—. Caso real: «mirmidones» en «Ovidio —
+        Metamorfosis · Libros XI-XV», cuyo índice cita VII 654, un verso
+        que se imprime en los tomos 365 y 400 (2026-08-14).
+        """
+        from app import rag
+
+        if not self.cb_notas.isChecked() and self._indice is not None:
+            try:
+                con_notas = self._indice.tomos_con(
+                    self._consulta, incluir_notas=True
+                )
+            except rag.RagError:
+                con_notas = []
+            if any(t["canonico"] == canonico for t in con_notas):
+                return (
+                    f"En «{canonico}» eso solo sale en sus notas: marca "
+                    f"«Con notas» para verlo."
+                )
+        cita = f" ({refs.split(';')[0].strip()})" if refs else ""
+        return (
+            f"«{canonico}» cita ese nombre en su índice{cita}, pero el "
+            f"pasaje no está en ESTE tomo: el índice de la BCG es común a "
+            f"toda la obra, así que la cita puede ser de otro volumen."
+        )
+
     def _buscar_ese_tomo(self, fila: int, _col: int) -> None:
         """
         Doble clic en un nombre: se despliega ESE tomo en la lista de
@@ -6050,12 +6086,9 @@ class BuscarTextosDialog(FramelessDialog):
         canonico = item.data(Qt.ItemDataRole.UserRole)
         destino = self._fila_del_tomo(canonico)
         if destino is None:
-            # Lo cita el índice de nombres pero la palabra no aparece en
-            # su texto (o el filtro de notas lo esconde): se dice, en vez
-            # de no hacer nada al pulsar.
+            refs = self.tbl_nombres.item(fila, 3)
             self.lbl_status.setText(
-                f"«{canonico}» cita ese nombre en su índice, pero la "
-                f"palabra no aparece en el texto indexado del tomo."
+                self._por_que_no_esta(canonico, refs.text() if refs else "")
             )
             return
         self.table.selectRow(destino)

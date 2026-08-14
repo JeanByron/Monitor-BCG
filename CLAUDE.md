@@ -889,6 +889,39 @@ Windows, `QTextLayout.glyphRuns()` provoca un fallo de acceso y
   folio, el verso/parágrafo; «hoja N del PDF» solo como último recurso.
   · **Las notas van en pasajes aparte** (`clase='notas'`): son 66.781
   hojas de 101.402 y taparían el texto del autor. Se pueden excluir.
+  · **UN ÍNDICE NO ES UNA NOTA AL PIE (`SECCIONES_SIN_NOTAS_AL_PIE`,
+  VERSION 3, 2026-08-14)**: los índices van en LETRA MENOR que el
+  texto, así que el separador de notas al pie de `pdftext` se llevaba
+  la hoja entera al campo `notas` del `.jsonl` y el indexador la
+  marcaba `clase='notas'` — con «Con notas» desmarcado, el índice
+  DESAPARECÍA. Y solo en los tomos cuyo PDF lo compuso más pequeño: el
+  índice de nombres iba de cuerpo en 60 tomos y de notas en 22, el
+  mismo contenido encontrable o no según el tomo. Lo destapó
+  «mirmidones», que no encontraba «Ovidio — Metamorfosis · Libros
+  XI-XV» aunque lo trae en su índice. Ahora, en `indice_nombres` e
+  `indice_general`, los dos campos se JUNTAN antes de trocear (mismo
+  orden que `pdftext._texto_completo`) y van de cuerpo: si se trocearan
+  por separado habría dos trozos «0» en la hoja y al recomponerla se
+  intercalarían. La lista es CORTA a propósito — `bibliografia` e
+  `introduccion` sí llevan notas al pie de verdad y reclasificarlas
+  sacaría notas auténticas al texto del autor. Tras el arreglo: 3.046
+  pasajes de índice de nombres en 65 tomos, CERO como notas, y las
+  notas de verdad intactas (texto 18.756, notas_finales 187.604).
+  · **Que el índice cite un nombre NO significa que el pasaje esté en
+  ese tomo**: el índice de la BCG es común a TODA la obra, y una obra
+  puede ocupar varios tomos — las Metamorfosis son tres (365 Vol. I,
+  400 Vol. II, 415.2 Libros XI-XV) y el índice del último cita «VII
+  654», un verso impreso en otro volumen. Por eso
+  `BuscarTextosDialog._por_que_no_esta` distingue DOS cosas al pulsar
+  un nombre que no abre ningún tomo: «solo sale en sus notas, marca Con
+  notas» y «la cita puede ser de otro volumen». Antes decía siempre
+  «la palabra no aparece en el texto indexado del tomo», que además
+  podía ser FALSO (estaba, escondida por el filtro).
+  · **El pasaje del día se guarda por IDENTIFICADOR**, y reindexar
+  reparte identificadores nuevos: `_vaciar()` olvida la clave y
+  `pasaje_del_dia` vuelve a sortear si el guardado ya no tiene pasaje
+  detrás (si no, la ventana salía vacía o enseñaba otro pasaje
+  saltándose las cribas del sorteo).
   · **Peso por longitud** (`_PESO_LARGO`): BM25 divide por el tamaño
   del pasaje, así que las hojas de RÓTULO ganaban — los 4 primeros
   resultados de «Aquiles» eran rótulos de dos palabras. No borrarlas,

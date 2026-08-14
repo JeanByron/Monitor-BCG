@@ -55,7 +55,10 @@ TEXTOS_DIR = app_dir() / "BDtomos" / "TextosTomos"
 # Versión del esquema/troceado. Al subirla, `indexar()` reconstruye
 # TODO: si cambia cómo se trocea, los pasajes viejos no son comparables
 # con los nuevos y mezclarlos daría citas descolocadas.
-VERSION = 2
+#   3 (2026-08-14): las hojas de índice dejan de contarse como notas
+#     (ver SECCIONES_SIN_NOTAS_AL_PIE). Cambia la CLASE de pasajes ya
+#     guardados, así que no vale con reindexar lo nuevo.
+VERSION = 3
 
 # Qué parte del principio de un tomo se salta el pasaje del día:
 # ahí están la introducción y la nota bibliográfica del editor,
@@ -74,6 +77,24 @@ SOLAPE = 40
 # menos en el ranking y se puede excluir con un filtro.
 SECCIONES_TEXTO = ("texto", "introduccion")
 SECCIONES_NOTAS = ("notas_finales",)
+
+# Secciones que son una LISTA de cabo a rabo: un índice no tiene notas
+# al pie. Si parte de su texto llegó al campo `notas` del .jsonl es solo
+# porque va en LETRA MENOR que el resto del tomo y el separador de notas
+# se lo llevó entero — la misma trampa que `pdftext` ya sortea al leer
+# el índice de nombres con `_texto_completo` (cuerpo + notas).
+#
+# Sin esto, esas hojas quedaban como `clase='notas'` y desaparecían al
+# buscar con «Con notas» desmarcado. Medido en el corpus (2026-08-14):
+# el índice de nombres iba de cuerpo en 60 tomos y de notas en 22 — el
+# mismo contenido se encontraba o no según cómo estuviera compuesto el
+# PDF. Caso real: «mirmidones» no encontraba «Ovidio — Metamorfosis ·
+# Libros XI-XV», que lo trae en su índice.
+#
+# La lista es CORTA a propósito. `bibliografia` e `introduccion` sí
+# pueden llevar notas al pie de verdad, así que se quedan como están:
+# reclasificarlas sacaría notas auténticas al texto del autor.
+SECCIONES_SIN_NOTAS_AL_PIE = ("indice_nombres", "indice_general")
 
 # Penalización del ranking por clase de pasaje: 1,0 es el texto; las
 # notas y los aparatos valen menos porque casi nunca son la respuesta.
@@ -303,10 +324,18 @@ def _pasajes_de_hoja(reg: dict) -> Iterator[dict]:
         "nota": reg.get("nota") or "",
         "versos": " ".join(str(v) for v in (reg.get("versos") or [])),
     }
-    for clase, bruto in (
-        (_clase_de(seccion), reg.get("cuerpo") or ""),
-        ("notas", reg.get("notas") or ""),
-    ):
+    cuerpo, notas = reg.get("cuerpo") or "", reg.get("notas") or ""
+    if seccion in SECCIONES_SIN_NOTAS_AL_PIE:
+        # Un índice no tiene notas al pie: los dos campos son la MISMA
+        # lista, partida por el tamaño de la letra. Se juntan ANTES de
+        # trocear —en el mismo orden que `pdftext._texto_completo`— para
+        # que el `orden` de los trozos siga siendo correlativo; si se
+        # trocearan por separado habría dos trozos "0" en la hoja y al
+        # recomponerla se intercalarían.
+        fuentes = ((_clase_de(seccion), "\n".join(t for t in (cuerpo, notas) if t)),)
+    else:
+        fuentes = ((_clase_de(seccion), cuerpo), ("notas", notas))
+    for clase, bruto in fuentes:
         for orden, trozo in enumerate(_trozos(bruto)):
             yield {
                 **comun,
@@ -441,6 +470,11 @@ class Indice:
         self._con.execute("DELETE FROM pasajes")     # el disparador limpia FTS
         self._con.execute("DELETE FROM nombres")
         self._con.execute("DELETE FROM tomos")
+        # El pasaje del día se guarda por IDENTIFICADOR, y al rehacer el
+        # índice los identificadores se reparten de nuevo desde el 1: el
+        # guardado apuntaría a un pasaje distinto, saltándose de paso las
+        # cribas del sorteo. Se olvida y hoy se vuelve a sortear.
+        self._con.execute("DELETE FROM meta WHERE clave='pasaje_del_dia'")
         self._con.execute(
             "INSERT OR REPLACE INTO meta(clave, valor) VALUES('version', ?)",
             (str(VERSION),),
@@ -968,14 +1002,20 @@ class Indice:
                     elegido = int(datos["id"])
             except (ValueError, KeyError, TypeError):
                 elegido = None
-        if elegido is None:
+        ficha = self.ficha_de_pasaje(elegido) if elegido is not None else {}
+        if not ficha:
+            # Sin elección guardada, o guardada y ya sin pasaje detrás:
+            # reindexar un tomo borra sus pasajes y los vuelve a insertar
+            # con identificadores nuevos, así que el del día podía quedar
+            # colgando y la ventana salía vacía.
             elegido = self._sortear_pasaje(fecha)
             if elegido is None:
                 return {}
             self._escribir_meta(
                 "pasaje_del_dia", json.dumps({"fecha": fecha, "id": elegido})
             )
-        return self.ficha_de_pasaje(elegido)
+            ficha = self.ficha_de_pasaje(elegido)
+        return ficha
 
     def _sortear_pasaje(self, semilla: str) -> Optional[int]:
         """

@@ -1442,10 +1442,19 @@ def test_el_pasaje_del_dia_cambia_a_medianoche(app, indice_falso, monkeypatch):
     # El reloj apunta al primer segundo del día siguiente, no a un
     # sondeo cada minuto.
     assert d._reloj.isActive() and d._reloj.isSingleShot()
-    faltan = timedelta(milliseconds=d._reloj.remainingTime())
-    manana = (datetime.now() + faltan).replace(microsecond=0)
-    assert manana.date() == (datetime.now() + timedelta(days=1)).date()
-    assert (manana.hour, manana.minute) == (0, 0)
+    # Se mide sobre `interval()` y rearmando aquí mismo, NO sobre
+    # `remainingTime()`: sin un bucle de eventos en marcha —en las
+    # pruebas no lo hay— Qt no refresca lo que queda, así que el reloj
+    # se queda quieto mientras el de pared avanza y la resta salía casi
+    # un segundo corta. Con la ventana de verdad no pasa.
+    antes = datetime.now()
+    d._armar_para_medianoche()
+    objetivo = antes + timedelta(milliseconds=d._reloj.interval())
+    medianoche = (antes + timedelta(days=1)).replace(
+        hour=0, minute=0, second=0, microsecond=0)
+    # Lo que de verdad importa: NUNCA antes de medianoche (si no,
+    # `date.today()` seguiría dando el día de ayer), y por poco.
+    assert medianoche < objetivo <= medianoche + timedelta(seconds=2)
 
     # Al saltar el día, trae el de hoy y se vuelve a armar.
     d._cambia_el_dia()
@@ -1550,3 +1559,36 @@ def test_el_pasaje_del_dia_cierra_en_punto_y_aparte(app):
     medio = [("parrafo", "Una frase. Y otra que se corta aqu")]
     assert gui._acaba_en_parrafo(medio) == medio
     assert gui._acaba_en_frase(medio) == [("parrafo", "Una frase.")]
+
+
+def test_mensaje_cuando_el_nombre_del_indice_no_lleva_a_ningun_tomo(
+    app, indice_falso
+):
+    """
+    Al pulsar un nombre del índice que no abre ningún tomo hay que
+    distinguir DOS cosas; antes se decían igual —«la palabra no aparece
+    en el texto indexado del tomo»— y encima podía ser falso.
+
+    (1) La palabra está, pero solo en notas y el filtro la esconde.
+    (2) No está: el índice de nombres de la BCG es común a toda la obra,
+        así que la cita puede corresponder a otro volumen. Caso real:
+        «mirmidones» en «Ovidio — Metamorfosis · Libros XI-XV», cuyo
+        índice cita VII 654, un verso impreso en los tomos 365 y 400.
+    """
+    from app import gui
+
+    d = _abrir(gui.BuscarTextosDialog("Aquiles"))
+    QApplication.processEvents()
+
+    d._consulta = "epíteto"                  # solo en las notas del tomo
+    assert not d.cb_notas.isChecked()
+    aviso = d._por_que_no_esta("Homero — Ilíada")
+    assert "Con notas" in aviso
+
+    d._consulta = "mirmidones"               # no está en ninguna parte
+    aviso = d._por_que_no_esta("Homero — Ilíada", "VII 654; IX 12")
+    assert "otro volumen" in aviso
+    assert "VII 654" in aviso                # la cita concreta, para buscarla
+    assert "Con notas" not in aviso
+    d.close()
+    QApplication.processEvents()
