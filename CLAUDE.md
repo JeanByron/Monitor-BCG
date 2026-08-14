@@ -7,6 +7,33 @@ App de escritorio Windows (PySide6) que vigila el correo IMAP y notifica
 bajadas de precio y lotes de libros de la Biblioteca Clásica Gredos.
 Tests: `python -m pytest tests/ -q`.
 
+## Repositorio (2026-08-13)
+
+`https://github.com/JeanByron/Monitor-BCG.git` (rama `main`). Se sube el
+CÓDIGO; los datos de ejecución se quedan fuera — `config.json` (correo y
+contraseña cifrada con DPAPI), `tc_monitor.db`, `log.txt`,
+`last_email.eml` y `BDtomos/` entero SALVO `titulosBCG.xlsx`, sin el
+cual la aplicación no sabe qué tomos existen. `textos.db` (384 MB) no
+podría subirse aunque se quisiera: GitHub corta en 100 MB por archivo, y
+además se reconstruye solo desde los `.jsonl`. En su lugar viaja
+`config.example.json`. Tres trampas, las tres medidas aquí:
+- **git NO admite comentarios al final de una línea de patrón**:
+  `config.json  # credenciales` es un patrón llamado
+  «config.json  # credenciales» y no casa con nada. Con esa primera
+  versión del `.gitignore`, `config.json` —con el correo y el blob
+  DPAPI— quedó preparado para el commit. Los comentarios van en su
+  propia línea, y conviene comprobar con `git ls-files` lo que de verdad
+  entra ANTES de confirmar.
+- **En `.gitattributes` gana la ÚLTIMA regla que casa**: con
+  `* text=auto` al final se llevaba por delante la excepción de los
+  `.eml`. Esos correos son de verdad y las pruebas leen sus cabeceras
+  tal cual, así que van como binarios (`*.eml -text`): si git les cambia
+  los finales de línea al clonar, el parseo deja de cuadrar con el
+  `.expected.json`.
+- El correo de prueba de Ausonio traía el Gmail del usuario cinco veces;
+  se sustituyó por `usuario@ejemplo.com` (el `.expected.json` no mira
+  ese campo, las 361 pruebas siguen pasando).
+
 ## Estructura (reorganizada 2026-07-26)
 
 Código en el paquete `app/` (imports SIEMPRE `from app.x import`);
