@@ -62,7 +62,9 @@ TEXTOS_DIR = app_dir() / "BDtomos" / "TextosTomos"
 #     guardados, así que no vale con reindexar lo nuevo.
 #   4 (2026-08-14): cuatro clases (obra / editor / notas / aparato) en
 #     vez de dos. Misma razón: cambia la clase de lo ya guardado.
-VERSION = 4
+#   5 (2026-08-14): los preliminares del editor colados en la sección
+#     `texto` pasan a clase `editor` (ver preliminares_del_tomo).
+VERSION = 5
 
 # Qué parte del principio de un tomo se salta el pasaje del día:
 # ahí están la introducción y la nota bibliográfica del editor,
@@ -112,6 +114,51 @@ _CLASE_POR_SECCION = {
 # ANTE LA DUDA, OBRA. El error caro no es que se cuele un párrafo del
 # traductor: es esconder una página del autor detrás de un filtro.
 _CLASE_POR_DEFECTO = CLASE_OBRA
+
+# --- Dónde empieza de verdad la obra (2026-08-14) --------------------
+# La sección `texto` arrastra los preliminares del editor cuando el PDF
+# no traía índice interno: sinopsis, «nota a la presente traducción»,
+# variantes textuales, los apartados numerados de la introducción. Para
+# separarlos hacen falta DOS evidencias a la vez, porque cada una sola
+# se equivoca:
+#
+# (1) POSICIÓN — la referencia canónica del margen (verso, parágrafo,
+#     Bekker, Estéfano) la lleva el autor antiguo y no el traductor:
+#     0,0 % de las notas finales frente al 60,6 % del cuerpo del texto.
+#     Se busca la primera RACHA sostenida y lo anterior es sospechoso.
+#     Su presencia prueba que la hoja es del autor; su AUSENCIA no
+#     prueba nada — medido: el «Acto tercero» de Séneca y «La gramática»
+#     de Suetonio no llevan ninguna y son texto antiguo.
+# (2) RÓTULO — el título impreso de la hoja es de aparato editorial, o
+#     forma parte de un ESQUEMA numerado (2.4., 7.), que es como se
+#     titulan los apartados de una introducción y no las partes de una
+#     obra.
+#
+# Y la racha se busca POR OBRA, no por tomo: en un volumen de varias
+# obras la primera racha puede caer en la tercera, y con la frontera del
+# tomo los discursos VI y VII de Juliano —que se imprimieron sin
+# referencia— pasaban por prosa del editor.
+_VENTANA_OBRA = 6        # hojas seguidas que se miran
+_MINIMO_OBRA = 4         # cuántas de ellas han de llevar referencia
+_TOPE_FRONTERA = 80      # hasta dónde se busca la racha, en hojas
+_MINIMO_ESQUEMA = 3      # apartados numerados que delatan una introducción
+
+_ROTULOS_EDITORIALES = (
+    "sinopsis", "introduccion", "nota bibliografica", "nota textual",
+    "nota editorial", "nota preliminar", "nota a la traduccion",
+    "nota sobre la traduccion", "sobre la presente traduccion",
+    "la presente traduccion", "nuestra edicion", "nuestra traduccion",
+    "bibliografia", "ediciones", "traducciones", "estudios", "comentarios",
+    "variantes", "divergencias", "codices", "manuscritos",
+    "tradicion manuscrita", "transmision del texto", "abreviaturas",
+    "siglas", "cronologia", "conspectus siglorum",
+)
+# «2.4. La guerra civil», «7. Nuestra edición». El número va DELANTE y
+# seguido de texto: así no entra «1» suelto ni un verso numerado.
+_TITULO_NUMERADO = re.compile(r"^\s*([0-9]+(?:\s*\.\s*[0-9]+)*)\s*\.?\s+\S")
+# Y se quita ese número antes de comparar con los rótulos, para que
+# «3. Bibliografía» cuente igual que «Bibliografía».
+_NUMERO_DELANTE = re.compile(r"^[0-9]+(\s*\.\s*[0-9]+)*\s*\.?\s*")
 
 CLASES = (CLASE_OBRA, CLASE_EDITOR, CLASE_NOTAS, CLASE_APARATO)
 # Ámbitos del selector, ACUMULATIVOS. El tercero es exactamente lo que
@@ -378,7 +425,66 @@ def clases_de_ambito(
     return tuple(c for c in CLASES if c != CLASE_NOTAS)
 
 
-def _pasajes_de_hoja(reg: dict) -> Iterator[dict]:
+def _es_rotulo_editorial(titulo: str) -> bool:
+    """¿El rótulo impreso de la hoja es de aparato del editor?"""
+    plano = _NUMERO_DELANTE.sub("", normaliza(titulo or ""))
+    return any(plano == r or plano.startswith(r) for r in _ROTULOS_EDITORIALES)
+
+
+def preliminares_del_tomo(registros: list) -> set:
+    """
+    Posiciones de las hojas que son PRELIMINARES del editor.
+
+    Se miran solo las hojas de sección `texto` —las demás ya se
+    clasifican por su rótulo— y se agrupan POR OBRA, porque un volumen
+    trae varias y cada una lleva sus propios preliminares delante.
+
+    Dentro de cada obra: se busca la primera racha sostenida de hojas
+    con referencia al margen y, de las hojas ANTERIORES, se apartan las
+    que además lleven rótulo de aparato o número de esquema. Si la obra
+    no tiene ninguna racha —hay obras enteras impresas sin referencia—
+    no se toca nada suyo: la ausencia de referencia no prueba que la
+    hoja sea del editor, y el error caro es esconder al autor.
+    """
+    posiciones = [
+        i for i, reg in enumerate(registros)
+        if (reg.get("seccion") or "") == "texto"
+    ]
+    por_obra: dict = {}
+    for i in posiciones:
+        clave = (registros[i].get("obra") or "").strip()
+        por_obra.setdefault(clave, []).append(i)
+
+    preliminares: set = set()
+    for indices in por_obra.values():
+        marcas = [bool(registros[i].get("versos")) for i in indices]
+        frontera = None
+        for j in range(min(len(marcas), _TOPE_FRONTERA)):
+            if marcas[j] and sum(marcas[j:j + _VENTANA_OBRA]) >= _MINIMO_OBRA:
+                frontera = j
+                break
+        if not frontera:            # None (sin racha) o 0 (empieza ya)
+            continue
+        previas = indices[:frontera]
+        numerados = {
+            m.group(1) for m in (
+                _TITULO_NUMERADO.match(registros[i].get("titulo") or "")
+                for i in previas
+            ) if m
+        }
+        hay_esquema = len(numerados) >= _MINIMO_ESQUEMA
+        for i in previas:
+            if registros[i].get("versos"):
+                continue            # lleva la marca del autor: es suya
+            titulo = registros[i].get("titulo") or ""
+            if _es_rotulo_editorial(titulo) or (
+                hay_esquema and _TITULO_NUMERADO.match(titulo)
+            ):
+                preliminares.add(i)
+    return preliminares
+
+
+def _pasajes_de_hoja(reg: dict, preliminar: bool = False) -> Iterator[dict]:
     """
     Los pasajes que salen de una hoja del `.jsonl`.
 
@@ -396,6 +502,9 @@ def _pasajes_de_hoja(reg: dict) -> Iterator[dict]:
         "versos": " ".join(str(v) for v in (reg.get("versos") or [])),
     }
     cuerpo, notas = reg.get("cuerpo") or "", reg.get("notas") or ""
+    # Preliminares del editor colados en la sección `texto`: siguen
+    # indexados y con su localización intacta, solo cambian de voz.
+    clase_cuerpo = CLASE_EDITOR if preliminar else _clase_de(seccion)
     if seccion in SECCIONES_SIN_NOTAS_AL_PIE:
         # Un índice no tiene notas al pie: los dos campos son la MISMA
         # lista, partida por el tamaño de la letra. Se juntan ANTES de
@@ -403,9 +512,9 @@ def _pasajes_de_hoja(reg: dict) -> Iterator[dict]:
         # que el `orden` de los trozos siga siendo correlativo; si se
         # trocearan por separado habría dos trozos "0" en la hoja y al
         # recomponerla se intercalarían.
-        fuentes = ((_clase_de(seccion), "\n".join(t for t in (cuerpo, notas) if t)),)
+        fuentes = ((clase_cuerpo, "\n".join(t for t in (cuerpo, notas) if t)),)
     else:
-        fuentes = ((_clase_de(seccion), cuerpo), (CLASE_NOTAS, notas))
+        fuentes = ((clase_cuerpo, cuerpo), (CLASE_NOTAS, notas))
     for clase, bruto in fuentes:
         for orden, trozo in enumerate(_trozos(bruto)):
             yield {
@@ -677,13 +786,19 @@ class Indice:
             )
             tomo_id = cur.lastrowid
 
+            # El tomo entero en memoria (el mayor .jsonl son 1,9 MB):
+            # la frontera de comienzo de obra necesita ver todas sus
+            # hojas antes de clasificar la primera.
+            registros = [
+                json.loads(linea) for linea in fh if linea.strip()
+            ]
+            preliminares = preliminares_del_tomo(registros)
+
             filas = []
-            for linea in fh:
-                linea = linea.strip()
-                if not linea:
-                    continue
-                reg = json.loads(linea)
-                for p in _pasajes_de_hoja(reg):
+            for numero_hoja, reg in enumerate(registros):
+                for p in _pasajes_de_hoja(
+                    reg, preliminar=numero_hoja in preliminares
+                ):
                     filas.append((
                         tomo_id, p["hoja"], p["impresa"], p["seccion"],
                         p["obra"], p["titulo"], p["clase"], p["nota"],

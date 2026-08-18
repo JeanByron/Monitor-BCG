@@ -840,3 +840,135 @@ def test_rehacer_el_indice_olvida_el_pasaje_del_dia(indice):
     assert indice._leer_meta("pasaje_del_dia")
     indice._vaciar()
     assert indice._leer_meta("pasaje_del_dia") is None
+
+
+# --------------------------------------------------------------------
+# Dónde empieza de verdad la obra (2026-08-14)
+# --------------------------------------------------------------------
+# La sección `texto` arrastra los preliminares del editor cuando el PDF
+# no traía índice interno. Se apartan con DOS evidencias a la vez —la
+# referencia del margen y el rótulo—, porque cada una sola se equivoca.
+
+def _hoja_texto(pdf, cuerpo, titulo="", obra="", versos=()):
+    return _hoja(pdf, cuerpo, seccion="texto", titulo=titulo, obra=obra,
+                 versos=list(versos))
+
+
+def test_los_preliminares_del_editor_no_son_la_obra():
+    """Sinopsis y «nuestra edición» delante de la obra, sin referencia."""
+    regs = [
+        _hoja_texto(1, "SINOPSIS Proemio. Primeras diferencias entre "
+                       "griegos y bárbaros.", titulo="Sinopsis", obra="Clío"),
+        _hoja_texto(2, "Hemos seguido el texto de la edición de Oxford.",
+                    titulo="Nuestra edición", obra="Clío"),
+    ] + [
+        _hoja_texto(i, f"Ésta es la exposición de Heródoto, parte {i}.",
+                    titulo="Clío", obra="Clío", versos=["1", "2"])
+        for i in range(3, 9)
+    ]
+    assert rag.preliminares_del_tomo(regs) == {0, 1}
+
+
+def test_una_hoja_con_referencia_al_margen_es_del_autor():
+    """
+    La referencia PRUEBA que la hoja es del autor; su ausencia no prueba
+    nada. Aunque el rótulo suene a editorial, con referencia no se toca.
+    """
+    regs = [
+        _hoja_texto(1, "Cronología de la vida del autor.",
+                    titulo="Cronología", obra="X", versos=["4"]),
+    ] + [
+        _hoja_texto(i, f"Texto del autor {i}.", titulo="X", obra="X",
+                    versos=["1"]) for i in range(2, 8)
+    ]
+    assert rag.preliminares_del_tomo(regs) == set()
+
+
+def test_una_obra_sin_referencias_no_se_toca_entera():
+    """
+    Medido en el corpus: «La gramática» de Suetonio y el «Acto tercero»
+    de Séneca se imprimieron sin referencia al margen y son texto
+    antiguo. Sin racha en esa obra, no se aparta nada suyo.
+    """
+    regs = [
+        _hoja_texto(i, f"LA GRAMÁTICA {i}. La gramática en Roma no era "
+                       f"objeto de estudio.", titulo="La gramática",
+                    obra="Suetonio")
+        for i in range(1, 9)
+    ]
+    assert rag.preliminares_del_tomo(regs) == set()
+
+
+def test_la_frontera_se_busca_por_obra_no_por_tomo():
+    """
+    En un volumen de varias obras la primera racha puede caer en la
+    tercera: con la frontera del TOMO, los discursos VI y VII de Juliano
+    —impresos sin referencia— pasaban por prosa del editor.
+    """
+    regs = [
+        _hoja_texto(i, f"Discurso VI de Juliano, hoja {i}.",
+                    titulo="VI Carta a Temistio", obra="VI CARTA A TEMISTIO")
+        for i in range(1, 6)
+    ] + [
+        _hoja_texto(10, "SINOPSIS DEL DISCURSO Parágrafos. Origen del mito.",
+                    titulo="Sinopsis", obra="VIII A LA MADRE DE LOS DIOSES"),
+    ] + [
+        _hoja_texto(i, f"A la madre de los dioses, hoja {i}.",
+                    titulo="A la madre de los dioses",
+                    obra="VIII A LA MADRE DE LOS DIOSES", versos=["b", "c"])
+        for i in range(11, 17)
+    ]
+    # Solo la sinopsis del discurso VIII; el VI entero se queda.
+    assert rag.preliminares_del_tomo(regs) == {5}
+
+
+def test_el_esquema_numerado_de_una_introduccion():
+    """
+    Los apartados de una introducción van numerados («2.4. La guerra
+    civil»); las partes de una obra, no. Hacen falta TRES para fiarse.
+    """
+    regs = [
+        _hoja_texto(1, "El tratado se publicó en el 51 a. C.",
+                    titulo="1. Contenido", obra="X"),
+        _hoja_texto(2, "La transmisión del texto es compleja.",
+                    titulo="2. Fuentes", obra="X"),
+        _hoja_texto(3, "Para nuestra versión hemos seguido a Clark.",
+                    titulo="3. Fecha", obra="X"),
+    ] + [
+        _hoja_texto(i, f"Texto del autor {i}.", titulo="Libro I", obra="X",
+                    versos=["10"]) for i in range(4, 10)
+    ]
+    assert rag.preliminares_del_tomo(regs) == {0, 1, 2}
+    # Con uno solo no hay esquema que valga: se queda como obra.
+    sueltos = [regs[0]] + regs[3:]
+    assert rag.preliminares_del_tomo(sueltos) == set()
+
+
+def test_el_preliminar_se_indexa_como_editor(tmp_path, monkeypatch):
+    """No se tira nada: cambia de voz, conserva su localización."""
+    textos = tmp_path / "TextosTomos"
+    textos.mkdir()
+    monkeypatch.setattr(rag, "TEXTOS_DIR", textos)
+    hojas = [
+        _hoja_texto(1, "SINOPSIS Presentación de la obra y su contenido.",
+                    titulo="Sinopsis", obra="Clío"),
+    ] + [
+        _hoja_texto(i, f"Ésta es la exposición de Heródoto de Halicarnaso "
+                       f"en la parte {i} de su libro.",
+                    titulo="Clío", obra="Clío", versos=["1"])
+        for i in range(2, 9)
+    ]
+    _escribe_tomo(textos, "003 - Heródoto - Historia.jsonl",
+                  {"tipo": "tomo", "orden": 3, "numero": "3",
+                   "autor": "Heródoto", "obras": "Historia",
+                   "canonico": "Heródoto — Historia", "indice_nombres": {}},
+                  hojas)
+    idx = rag.Indice(tmp_path / "textos.db")
+    idx.indexar()
+    try:
+        assert idx.buscar("presentación obra", clases=(rag.CLASE_OBRA,)) == []
+        hit = idx.buscar("presentación obra", clases=(rag.CLASE_EDITOR,))
+        assert hit and hit[0].hoja == 1        # la hoja sigue siendo la suya
+        assert idx.buscar("Halicarnaso", clases=(rag.CLASE_OBRA,))
+    finally:
+        idx.close()

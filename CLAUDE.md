@@ -898,6 +898,40 @@ Windows, `QTextLayout.glyphRuns()` provoca un fallo de acceso y
   del traductor, es esconder una página del autor detrás de un filtro.
   Reparto MEDIDO del corpus (36,9 M de palabras, 277 tomos): obra
   70,6 %, notas 19,8 %, editor 7,5 %, aparato 2,1 %.
+  · **DÓNDE EMPIEZA DE VERDAD LA OBRA (`preliminares_del_tomo`,
+  VERSION 5, 2026-08-14)**: la sección `texto` arrastra los preliminares
+  del editor cuando el PDF no traía índice interno — sinopsis, «nota a
+  la presente traducción», variantes textuales, los apartados numerados
+  de la introducción—. Se apartan a `editor` exigiendo DOS evidencias a
+  la vez, porque cada una sola se equivoca, y las dos fallas están
+  MEDIDAS en el corpus:
+  (1) POSICIÓN: la referencia canónica del margen (verso, parágrafo,
+  Bekker, Estéfano) la lleva el autor y no el traductor —0,0 % de las
+  notas finales frente al 60,6 % del cuerpo del texto—, así que se
+  busca la primera RACHA sostenida (4 de 6 hojas) y lo anterior es
+  sospechoso. Su presencia PRUEBA que la hoja es del autor; su ausencia
+  no prueba nada: el «Acto tercero» de Séneca y «La gramática» de
+  Suetonio se imprimieron sin ninguna y son texto antiguo.
+  (2) RÓTULO: el título impreso es de aparato (`_ROTULOS_EDITORIALES`)
+  o forma parte de un ESQUEMA numerado —«2.4.», «7.»—, que es como se
+  titulan los apartados de una introducción y no las partes de una obra
+  (hacen falta TRES para fiarse).
+  · **La racha se busca POR OBRA, no por tomo**: en un volumen de
+  varias obras la primera racha puede caer en la tercera, y con la
+  frontera del TOMO los discursos VI y VII de Juliano —impresos sin
+  referencia— pasaban enteros por prosa del editor. Y una obra SIN
+  ninguna racha no se toca: mejor dejar prosa del editor como obra que
+  esconder al autor.
+  · Rendimiento: el tomo entero se lee en memoria (el mayor `.jsonl`
+  son 1,9 MB) porque la frontera necesita verlo antes de clasificar la
+  primera hoja. Medido: leer y parsear los 277 tomos son 3,0 s y
+  calcular los preliminares no añade nada (2,9 s haciendo las dos
+  cosas).
+  · Resultado en el corpus: 698 hojas y 222.909 palabras de 51 tomos
+  dejan de contar como obra (obra 70,6 % → 69,9 %; editor 7,5 % →
+  8,3 %). Muestra ciega de 25 hojas reclasificadas: 25 aciertos. Lo que
+  NO se atreve a mover —introducciones con títulos libres— espera a la
+  muestra etiquetada a mano (fase 3 de `docs/PLAN_RAG.md`).
   · **Los ámbitos son ACUMULATIVOS** (`rag.AMBITOS`, combo «Buscar en:»
   de `BuscarTextosDialog`): «Solo la obra» ⊂ «Obra e índices» ⊂ «Con la
   introducción» ⊂ «Todo, con las notas». Si un peldaño dejara de
